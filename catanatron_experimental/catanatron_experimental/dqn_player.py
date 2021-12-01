@@ -1,4 +1,6 @@
 import os
+import pdb
+import pickle
 import time
 import random
 import sys, traceback
@@ -56,8 +58,8 @@ UPDATE_MODEL_EVERY_N_TRAININGS = 5  # Terminal states (end of episodes)
 
 # Environment exploration settings
 # tutorial settings (seems like 26 hours...)
-EPISODES = 20_000
-EPSILON_DECAY = 0.99975
+# EPISODES = 20_000
+# EPSILON_DECAY = 0.99975
 # 8 hours process
 # EPISODES = 6000
 # EPSILON_DECAY = 0.9993
@@ -65,8 +67,8 @@ EPSILON_DECAY = 0.99975
 # EPISODES = 1500
 # EPSILON_DECAY = 0.998
 # 30 mins process
-# EPISODES = 150
-# EPSILON_DECAY = 0.98
+EPISODES = 150
+EPSILON_DECAY = 0.98
 # EPISODES = 10_000
 epsilon = 1  # not a constant, going to be decayed
 MIN_EPSILON = 0.001
@@ -403,6 +405,7 @@ def main(experiment_name):
 
         # Reset environment and get initial state
         current_state = env.reset()
+        pdb.set_trace()
 
         # Reset flag and start iterating until episode ends
         done = False

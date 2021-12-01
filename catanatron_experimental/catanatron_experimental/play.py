@@ -41,6 +41,7 @@ from catanatron_experimental.machine_learning.players.online_mcts_dqn import (
 )
 from catanatron_gym.features import create_sample
 from catanatron_experimental.dqn_player import DQNPlayer
+from catanatron_experimental.ql_player import QLPlayer
 from catanatron_experimental.machine_learning.board_tensor_features import (
     create_board_tensor,
 )
@@ -72,6 +73,7 @@ if LOG_IN_TF:
 
 
 PLAYER_CLASSES = {
+    "K": QLPlayer,
     "R": RandomPlayer,
     "H": HumanPlayer,
     "W": WeightedRandomPlayer,
