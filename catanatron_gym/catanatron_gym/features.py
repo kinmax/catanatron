@@ -1,6 +1,7 @@
 from typing import Tuple
 import functools
 from collections import Counter
+import pdb;
 
 import networkx as nx
 
@@ -106,9 +107,9 @@ def resource_hand_features(game, p0_color):
                 ]
             for card in DEVELOPMENT_CARDS:
                 features[f"P0_{card}_IN_HAND"] = player_state[key + f"_{card}_IN_HAND"]
-            features[f"P0_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN"] = player_state[
-                key + "_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN"
-            ]
+            # features[f"P0_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN"] = player_state[
+            #     key + "_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN"
+            # ]
 
         for card in DEVELOPMENT_CARDS:
             if card == VICTORY_POINT:
@@ -455,11 +456,11 @@ feature_extractors = [
     # expansion_features,
     # reachability_features,
     # RAW BASE-MAP FEATURES =====
-    tile_features,
-    port_features,
-    graph_features,
+    # tile_features,
+    # port_features,
+    # graph_features,
     # GAME FEATURES =====
-    game_features,
+    # game_features,
 ]
 
 
