@@ -25,6 +25,9 @@ from catanatron_gym.envs.catanatron_env import (
     ACTIONS_ARRAY,
     ACTION_SPACE_SIZE,
 )
+from catanatron.state_functions import (
+    player_key,
+)
 
 
 FEATURES = get_feature_ordering(2)
@@ -56,8 +59,8 @@ UPDATE_MODEL_EVERY_N_TRAININGS = 5  # Terminal states (end of episodes)
 # ALPHA_DECAY = 0.998
 # 30 mins process
 EPISODES = 500
-EPSILON_DECAY = 0.993
-ALPHA_DECAY = 0.993
+EPSILON_DECAY = 0.994
+ALPHA_DECAY = 0.994
 # EPISODES = 10_000
 epsilon = 1  # not a constant, going to be decayed
 alpha = 1
@@ -102,8 +105,8 @@ class CatanEnvironment:
         return self.game.state.playable_actions
 
     def reset(self):
-        p0 = Player(Color.BLUE)
-        players = [p0, VictoryPointPlayer(Color.RED)]
+        p0 = Player(Color.RED)
+        players = [p0, VictoryPointPlayer(Color.BLUE)]
         game = Game(players=players)
         self.game = game
         self.p0 = p0
@@ -117,6 +120,7 @@ class CatanEnvironment:
 
             action = from_action_space(action_int, self.playable_actions())
         except:
+            a = 5
             pdb.set_trace()
         self.game.execute(action)
 
@@ -125,15 +129,17 @@ class CatanEnvironment:
 
         new_state = self._get_state()
 
-        # key = player_key(self.game.state, self.p0.color)
-        # points = self.game.state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"]
-        # reward = int(winning_color == self.p0.color) * 10 * 1000 + points
-        if winning_color is None:
-            reward = 0
-        elif winning_color == self.p0.color:
-            reward = 1
-        else:
-            reward = -1
+        key = player_key(self.game.state, self.p0.color)
+        points = self.game.state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"]
+        enemy_key = player_key(self.game.state, Color.BLUE)
+        enemy_points = self.game.state.player_state[f"{enemy_key}_VICTORY_POINTS"]
+        reward = (int(winning_color == self.p0.color) * 10) + points - enemy_points
+        # if winning_color is None:
+        #     reward = 0
+        # elif winning_color == self.p0.color:
+        #     reward = 1
+        # else:
+        #     reward = -1
 
         done = winning_color is not None or self.game.state.num_turns > 500
         return new_state, reward, done
@@ -149,10 +155,11 @@ class CatanEnvironment:
             print("Exception closing browser. Did you close manually?")
 
     def _get_state(self):
+        # pdb.set_trace()
         sample = create_sample_vector(self.game, self.p0.color, FEATURES)
         # board_tensor = create_board_tensor(self.game, self.p0.color)
 
-        return (sample, None)  # NOTE: each observation/state is a tuple.
+        return sample  # NOTE: each observation/state is a tuple.
 
     def _advance_until_p0_decision(self):
         while (
@@ -169,8 +176,14 @@ def epsilon_greedy_policy(playable_actions, qs, epsilon):
         mask = np.zeros(ACTION_SPACE_SIZE, dtype=np.int)
         mask[action_ints] = 1
 
-        clipped_probas = np.multiply(mask, qs)
-        clipped_probas[clipped_probas == 0] = -np.inf
+        clipped_probas = qs.copy()
+        for i in range(0, len(clipped_probas)):
+            if i not in action_ints:
+                clipped_probas[i] = -np.inf
+
+
+        # clipped_probas = np.multiply(mask, qs)
+        # clipped_probas[clipped_probas == 0] = -np.inf
 
         best_action_int = np.argmax(clipped_probas)
 
@@ -187,7 +200,7 @@ def epsilon_greedy_policy(playable_actions, qs, epsilon):
 class QLPlayer(Player):
     def __init__(self, color, model_path):
         super(QLPlayer, self).__init__(color)
-        self.model_path = "/home/kin/catanatron/catanatron_experimental/catanatron_experimental/data/tables/ql_test-1638334511.json"
+        self.model_path = "/home/kin/catanatron/catanatron_experimental/catanatron_experimental/data/tables/ql_test-1638425033.json"
         data = ""
         with open(self.model_path, 'r') as file:
             data = file.read()
@@ -202,9 +215,11 @@ class QLPlayer(Player):
 
         sample = create_sample_vector(game, self.color, FEATURES)
         if repr(sample) in self.q_table:
+            # print("Q-TABLE")
             qs = self.q_table[repr(sample)]
             e = 0.0
         else:
+            # print("RANDOM")
             qs = np.zeros(ACTION_SPACE_SIZE)
             e = 1.0
 
@@ -262,7 +277,7 @@ def main(experiment_name, gamma):
         if not repr(current_state) in q_table:
             # q_table[repr(current_state)] = np.zeros(ACTION_SPACE_SIZE, dtype=np.float)
             q_table[repr(current_state)] = np.empty(ACTION_SPACE_SIZE)
-            q_table[repr(current_state)].fill(0.0000001)
+            q_table[repr(current_state)].fill(np.random.random())
 
         # Reset flag and start iterating until episode ends
         done = False
@@ -270,16 +285,22 @@ def main(experiment_name, gamma):
             best_action_int = epsilon_greedy_policy(
                 env.playable_actions(), q_table[repr(current_state)], epsilon
             )
-            
-            new_state, reward, done = env.step(best_action_int)
+
+            try:            
+                new_state, reward, done = env.step(best_action_int)
+            except:
+                pdb.set_trace()
             
 
             if not repr(new_state) in q_table:
+                print("NOT IN TABLE")
                 if not done:
                     q_table[repr(new_state)] = np.empty(ACTION_SPACE_SIZE)
-                    q_table[repr(new_state)].fill(0.0000001)
+                    q_table[repr(new_state)].fill(np.random.random())
                 else:
                     q_table[repr(new_state)] = np.zeros(ACTION_SPACE_SIZE, dtype=np.float)
+            else:
+                print("FOUND IT")
 
 
             # Transform new continous state to new discrete state and count reward
@@ -288,7 +309,7 @@ def main(experiment_name, gamma):
             if SHOW_PREVIEW and not episode % AGGREGATE_STATS_EVERY:
                 env.render()
 
-            q_table[repr(current_state)] = q_table[repr(current_state)] + alpha * (reward + np.argmax(q_table[repr(new_state)]) - q_table[repr(current_state)])
+            q_table[repr(current_state)][best_action_int] = q_table[repr(current_state)][best_action_int] + alpha * (reward + q_table[repr(new_state)][np.argmax(q_table[repr(new_state)])] - q_table[repr(current_state)][best_action_int])
 
             current_state = new_state
             step += 1
