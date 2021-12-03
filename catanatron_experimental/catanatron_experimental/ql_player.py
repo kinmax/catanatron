@@ -1,13 +1,11 @@
 import os
 import pdb
 import json
-import pickle
 import time
 import random
 import sys, traceback
 from pathlib import Path
 import click
-from collections import Counter, deque
 
 import numpy as np
 from tqdm import tqdm
@@ -35,15 +33,6 @@ NUM_FEATURES = len(FEATURES)
 
 DISCOUNT = 0.9
 
-# Every 5 episodes we have ~MINIBATCH_SIZE=1024 samples.
-# With batch-size=16k we are likely to hit 1 sample per action(?)
-REPLAY_MEMORY_SIZE = 50_000  # How many last steps to keep for model training
-MIN_REPLAY_MEMORY_SIZE = 5_000  # Min number of steps in a memory to start training
-MINIBATCH_SIZE = 1024  # How many steps (samples) to use for training
-TRAIN_EVERY_N_EPISODES = 1
-TRAIN_EVERY_N_STEPS = 100  # catan steps / decisions by agent
-UPDATE_MODEL_EVERY_N_TRAININGS = 5  # Terminal states (end of episodes)
-
 # Environment exploration settings
 # tutorial settings (seems like 26 hours...)
 # EPISODES = 20_000
@@ -58,7 +47,7 @@ UPDATE_MODEL_EVERY_N_TRAININGS = 5  # Terminal states (end of episodes)
 # EPSILON_DECAY = 0.998
 # ALPHA_DECAY = 0.998
 # 30 mins process
-EPISODES = 500
+EPISODES = 100
 EPSILON_DECAY = 0.994
 ALPHA_DECAY = 0.994
 # EPISODES = 10_000
@@ -116,8 +105,12 @@ class CatanEnvironment:
         return self._get_state()
 
     def step(self, action_int):
+        key = player_key(self.game.state, self.p0.color)
+        old_points = self.game.state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"]
+        enemy_key = player_key(self.game.state, Color.BLUE)
+        enemy_old_points = self.game.state.player_state[f"{enemy_key}_VICTORY_POINTS"]
+        
         try:
-
             action = from_action_space(action_int, self.playable_actions())
         except:
             a = 5
@@ -133,7 +126,13 @@ class CatanEnvironment:
         points = self.game.state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"]
         enemy_key = player_key(self.game.state, Color.BLUE)
         enemy_points = self.game.state.player_state[f"{enemy_key}_VICTORY_POINTS"]
-        reward = (int(winning_color == self.p0.color) * 10) + points - enemy_points
+        if winning_color is None:
+            final_reward = 0
+        elif winning_color == self.p0.color:
+            final_reward = 10
+        else:
+            final_reward = -10
+        reward = final_reward + (points - old_points) - (enemy_points - enemy_old_points)
         # if winning_color is None:
         #     reward = 0
         # elif winning_color == self.p0.color:
@@ -155,9 +154,7 @@ class CatanEnvironment:
             print("Exception closing browser. Did you close manually?")
 
     def _get_state(self):
-        # pdb.set_trace()
         sample = create_sample_vector(self.game, self.p0.color, FEATURES)
-        # board_tensor = create_board_tensor(self.game, self.p0.color)
 
         return sample  # NOTE: each observation/state is a tuple.
 
@@ -198,9 +195,9 @@ def epsilon_greedy_policy(playable_actions, qs, epsilon):
 
 
 class QLPlayer(Player):
-    def __init__(self, color, model_path):
+    def __init__(self, color, model_name):
         super(QLPlayer, self).__init__(color)
-        self.model_path = "/home/kin/catanatron/catanatron_experimental/catanatron_experimental/data/tables/ql_test-1638425033.json"
+        self.model_path = f"./data/tables/ql-player/{model_name}/{model_name}.json"
         data = ""
         with open(self.model_path, 'r') as file:
             data = file.read()
@@ -208,18 +205,26 @@ class QLPlayer(Player):
         self.q_table = {}
         for key, value in q_table_dict.items():
             self.q_table[key] = np.array(value)
+        self.metrics_path = f"data/metrics/ql-player/{model_name}/bench_metrics.txt"
+        self.known_states = 0
+        self.unknown_states = 0
+        self.total_states = 0
+        print("INIT")
 
     def decide(self, game, playable_actions):
         if len(playable_actions) == 1:
             return playable_actions[0]
 
         sample = create_sample_vector(game, self.color, FEATURES)
+        self.total_states += 1
         if repr(sample) in self.q_table:
             # print("Q-TABLE")
+            self.known_states += 1
             qs = self.q_table[repr(sample)]
             e = 0.0
         else:
             # print("RANDOM")
+            self.unknown_states += 1
             qs = np.zeros(ACTION_SPACE_SIZE)
             e = 1.0
 
@@ -248,21 +253,20 @@ def main(experiment_name, gamma):
 
     # Ensure models folder
     model_name = f"{experiment_name}-{int(time.time())}"
-    models_folder = "data/tables/"
+    models_folder = f"data/tables/ql-player/{model_name}/"
     if not os.path.isdir(models_folder):
         os.makedirs(models_folder)
 
-    metrics_path = f"data/metrics/ql-player/{model_name}"
+    metrics_path = f"data/metrics/ql-player/{model_name}/"
     if not os.path.isdir(metrics_path):
         os.makedirs(metrics_path)
 
-    metrics_path += "/metrics.txt"
+    metrics_path += "metrics.txt"
 
     with open(metrics_path, "w") as text_file:
-        print("episodes,average_reward,epsilon\n", file=text_file)
+        print("episodes,average_reward,epsilon,alpha,q_table_state_count", file=text_file)
 
     output_model_path = models_folder + model_name + ".json"
-    # writer = tf.summary.create_file_writer(metrics_path)
     print("Will be saving metrics to", metrics_path)
     print("Will be saving Q-Table to", output_model_path)
 
@@ -275,7 +279,6 @@ def main(experiment_name, gamma):
         # Reset environment and get initial state
         current_state = env.reset()
         if not repr(current_state) in q_table:
-            # q_table[repr(current_state)] = np.zeros(ACTION_SPACE_SIZE, dtype=np.float)
             q_table[repr(current_state)] = np.empty(ACTION_SPACE_SIZE)
             q_table[repr(current_state)].fill(np.random.random())
 
@@ -309,7 +312,7 @@ def main(experiment_name, gamma):
             if SHOW_PREVIEW and not episode % AGGREGATE_STATS_EVERY:
                 env.render()
 
-            q_table[repr(current_state)][best_action_int] = q_table[repr(current_state)][best_action_int] + alpha * (reward + q_table[repr(new_state)][np.argmax(q_table[repr(new_state)])] - q_table[repr(current_state)][best_action_int])
+            q_table[repr(current_state)][best_action_int] = q_table[repr(current_state)][best_action_int] + alpha * (reward + (gamma * q_table[repr(new_state)][np.argmax(q_table[repr(new_state)])]) - q_table[repr(current_state)][best_action_int])
 
             current_state = new_state
             step += 1
@@ -321,7 +324,7 @@ def main(experiment_name, gamma):
                 ep_rewards[-AGGREGATE_STATS_EVERY:]
             )
             with open(metrics_path, "a") as text_file:
-                print(f"{episode},{average_reward},{epsilon}", file=text_file)
+                print(f"{episode},{average_reward},{epsilon},{alpha},{len(list(q_table.keys()))}", file=text_file)
 
         # Decay epsilon
         if epsilon > MIN_EPSILON:
