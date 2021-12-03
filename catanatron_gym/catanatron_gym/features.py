@@ -65,20 +65,20 @@ def player_features(game, p0_color):
                 key + "_ACTUAL_VICTORY_POINTS"
             ]
 
-        features[f"P{i}_PUBLIC_VPS"] = game.state.player_state[key + "_VICTORY_POINTS"]
-        features[f"P{i}_HAS_ARMY"] = game.state.player_state[key + "_HAS_ARMY"]
-        features[f"P{i}_HAS_ROAD"] = game.state.player_state[key + "_HAS_ROAD"]
-        features[f"P{i}_ROADS_LEFT"] = game.state.player_state[key + "_ROADS_AVAILABLE"]
-        features[f"P{i}_SETTLEMENTS_LEFT"] = game.state.player_state[
-            key + "_SETTLEMENTS_AVAILABLE"
-        ]
-        features[f"P{i}_CITIES_LEFT"] = game.state.player_state[
-            key + "_CITIES_AVAILABLE"
-        ]
-        features[f"P{i}_HAS_ROLLED"] = game.state.player_state[key + "_HAS_ROLLED"]
-        features[f"P{i}_LONGEST_ROAD_LENGTH"] = game.state.player_state[
-            key + "_LONGEST_ROAD_LENGTH"
-        ]
+            # features[f"P{i}_PUBLIC_VPS"] = game.state.player_state[key + "_VICTORY_POINTS"]
+            features[f"P{i}_HAS_ARMY"] = game.state.player_state[key + "_HAS_ARMY"]
+            features[f"P{i}_HAS_ROAD"] = game.state.player_state[key + "_HAS_ROAD"]
+            features[f"P{i}_ROADS_LEFT"] = game.state.player_state[key + "_ROADS_AVAILABLE"]
+            features[f"P{i}_SETTLEMENTS_LEFT"] = game.state.player_state[
+                key + "_SETTLEMENTS_AVAILABLE"
+            ]
+            features[f"P{i}_CITIES_LEFT"] = game.state.player_state[
+                key + "_CITIES_AVAILABLE"
+            ]
+            features[f"P{i}_HAS_ROLLED"] = game.state.player_state[key + "_HAS_ROLLED"]
+            features[f"P{i}_LONGEST_ROAD_LENGTH"] = game.state.player_state[
+                key + "_LONGEST_ROAD_LENGTH"
+            ]
 
     return features
 
@@ -107,19 +107,19 @@ def resource_hand_features(game, p0_color):
                 ]
             for card in DEVELOPMENT_CARDS:
                 features[f"P0_{card}_IN_HAND"] = player_state[key + f"_{card}_IN_HAND"]
-            # features[f"P0_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN"] = player_state[
-            #     key + "_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN"
-            # ]
+            features[f"P0_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN"] = player_state[
+                key + "_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN"
+            ]
 
-        for card in DEVELOPMENT_CARDS:
-            if card == VICTORY_POINT:
-                continue  # cant play VPs
-            features[f"P{i}_{card}_PLAYED"] = player_state[key + f"_PLAYED_{card}"]
+            for card in DEVELOPMENT_CARDS:
+                if card == VICTORY_POINT:
+                    continue  # cant play VPs
+                features[f"P{i}_{card}_PLAYED"] = player_state[key + f"_PLAYED_{card}"]
 
-        features[f"P{i}_NUM_RESOURCES_IN_HAND"] = player_num_resource_cards(
-            state, color
-        )
-        features[f"P{i}_NUM_DEVS_IN_HAND"] = player_num_dev_cards(state, color)
+            features[f"P{i}_NUM_RESOURCES_IN_HAND"] = player_num_resource_cards(
+                state, color
+            )
+            features[f"P{i}_NUM_DEVS_IN_HAND"] = player_num_dev_cards(state, color)
 
     return features
 
@@ -218,24 +218,25 @@ def build_production_features(consider_robber):
         robbed_nodes = set(board.map.tiles[board.robber_coordinate].nodes.values())
         for resource in Resource:
             for i, color in iter_players(game.state.colors, p0_color):
-                production = 0
-                for node_id in get_player_buildings(
-                    game.state, color, BuildingType.SETTLEMENT
-                ):
-                    if consider_robber and node_id in robbed_nodes:
-                        continue
-                    production += get_node_production(
-                        game.state.board, node_id, resource
-                    )
-                for node_id in get_player_buildings(
-                    game.state, color, BuildingType.CITY
-                ):
-                    if consider_robber and node_id in robbed_nodes:
-                        continue
-                    production += 2 * get_node_production(
-                        game.state.board, node_id, resource
-                    )
-                features[f"{prefix}P{i}_{resource.value}_PRODUCTION"] = production
+                if color == p0_color:
+                    production = 0
+                    for node_id in get_player_buildings(
+                        game.state, color, BuildingType.SETTLEMENT
+                    ):
+                        if consider_robber and node_id in robbed_nodes:
+                            continue
+                        production += get_node_production(
+                            game.state.board, node_id, resource
+                        )
+                    for node_id in get_player_buildings(
+                        game.state, color, BuildingType.CITY
+                    ):
+                        if consider_robber and node_id in robbed_nodes:
+                            continue
+                        production += 2 * get_node_production(
+                            game.state.board, node_id, resource
+                        )
+                    features[f"{prefix}P{i}_{resource.value}_PRODUCTION"] = production
 
         return features
 
@@ -451,16 +452,16 @@ feature_extractors = [
     player_features,
     resource_hand_features,
     # TRANSFERABLE BOARD FEATURES =====
-    # build_production_features(True),
+    build_production_features(True),
     # build_production_features(False),
     # expansion_features,
     # reachability_features,
     # RAW BASE-MAP FEATURES =====
-    # tile_features,
-    # port_features,
-    # graph_features,
+    tile_features,
+    port_features,
+    graph_features,
     # GAME FEATURES =====
-    # game_features,
+    game_features,
 ]
 
 
