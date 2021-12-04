@@ -212,6 +212,16 @@ def play_batch(
             logger.info(f"Saved in db. See result at: {link}")
 
         winning_color = game.winning_color()
+        for player in players:
+            if hasattr(player.__class__, 'log_data') and callable(getattr(player.__class__, 'log_data')):
+                if winning_color == player.color:
+                    win_flag = 1
+                elif winning_color is None:
+                    win_flag = 0
+                else:
+                    win_flag = -1
+                player.log_data(win_flag)
+                
         if winning_color is None:
             continue
 
@@ -235,6 +245,12 @@ def play_batch(
                             f"{player.color}-vp-running-avg", running_avg, step=i
                         )
                 writer.flush()
+
+    
+    for player in players:
+        if hasattr(player.__class__, 'save_data') and callable(getattr(player.__class__, 'save_data')):
+            player.save_data()
+
 
     logger.info(f"AVG Ticks: {sum(ticks) / len(ticks)}")
     logger.info(f"AVG Turns: {sum(turns) / len(turns)}")
