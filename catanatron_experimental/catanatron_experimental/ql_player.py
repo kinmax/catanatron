@@ -47,7 +47,7 @@ DISCOUNT = 0.9
 # EPSILON_DECAY = 0.998
 # ALPHA_DECAY = 0.998
 # 30 mins process
-EPISODES = 100
+EPISODES = 500
 EPSILON_DECAY = 0.994
 ALPHA_DECAY = 0.994
 # EPISODES = 10_000
@@ -205,11 +205,17 @@ class QLPlayer(Player):
         self.q_table = {}
         for key, value in q_table_dict.items():
             self.q_table[key] = np.array(value)
-        self.metrics_path = f"data/metrics/ql-player/{model_name}/bench_metrics.txt"
+        self.metrics_path = f"data/metrics/ql-player/{model_name}/benchmark_metrics.csv"
         self.known_states = 0
         self.unknown_states = 0
         self.total_states = 0
-        print("INIT")
+        self.game_counter = 0
+        self.wins = 0
+        self.ties = 0
+        self.losses = 0
+        with open(self.metrics_path, "a") as text_file:
+            print("game,win,tie,loss,avg_seen_states,avg_known_states,avg_unknown_states,q_table_size", file=text_file)
+        # print("INIT")
 
     def decide(self, game, playable_actions):
         if len(playable_actions) == 1:
@@ -232,6 +238,21 @@ class QLPlayer(Player):
         best_action = from_action_space(best_action_int, playable_actions)
         return best_action
 
+    def log_data(self, win):
+        self.game_counter += 1
+        if win == 1:
+            self.wins += 1
+        elif win == 0:
+            self.ties += 1
+        else:
+            self.losses += 1
+        
+    def save_data(self):
+        data = f"{self.game_counter},{self.wins},{self.ties},{self.losses},{self.total_states/self.game_counter},{self.known_states/self.game_counter},{self.unknown_states/self.game_counter},{len(list(self.q_table.keys()))}"
+        with open(self.metrics_path, "a") as text_file:
+            print(data, file=text_file)
+        
+
 
 @click.command()
 @click.argument("experiment_name")
@@ -252,7 +273,7 @@ def main(experiment_name, gamma):
     np.random.seed(2)
 
     # Ensure models folder
-    model_name = f"{experiment_name}-{int(time.time())}"
+    model_name = f"{experiment_name}" #-{int(time.time())}"
     models_folder = f"data/tables/ql-player/{model_name}/"
     if not os.path.isdir(models_folder):
         os.makedirs(models_folder)
@@ -296,14 +317,15 @@ def main(experiment_name, gamma):
             
 
             if not repr(new_state) in q_table:
-                print("NOT IN TABLE")
+                # print("NOT IN TABLE")
                 if not done:
                     q_table[repr(new_state)] = np.empty(ACTION_SPACE_SIZE)
                     q_table[repr(new_state)].fill(np.random.random())
                 else:
                     q_table[repr(new_state)] = np.zeros(ACTION_SPACE_SIZE, dtype=np.float)
             else:
-                print("FOUND IT")
+                x = 5
+                # print("FOUND IT")
 
 
             # Transform new continous state to new discrete state and count reward
