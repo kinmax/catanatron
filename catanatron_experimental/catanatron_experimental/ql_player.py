@@ -287,6 +287,9 @@ def main(experiment_name, gamma):
     with open(metrics_path, "w") as text_file:
         print("episodes,average_reward,epsilon,alpha,q_table_state_count", file=text_file)
 
+    with open(metrics_path, "w") as text_file:
+        print("0,0,1.0,1.0,0", file=text_file)
+
     output_model_path = models_folder + model_name + ".json"
     print("Will be saving metrics to", metrics_path)
     print("Will be saving Q-Table to", output_model_path)
