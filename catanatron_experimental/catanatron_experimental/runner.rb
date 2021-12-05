@@ -16,11 +16,11 @@ all_features = [*player_features, *resource_hand_features, *build_production_fea
 
 feature_types_array = ["phbgm", "phbg", "phb", "ph", "p"]
 
-discounts = [0.1, 0.3, 0.5, 0.7, 0.9]
-bench_rounds = 1000
+discounts = [0.1, 0.5, 0.9]
+bench_rounds = 100
 
-bots = ["ql", "sarsa"]
-bots_tags = ["K", "Z"]
+bots = ["sarsa"]
+bots_tags = ["Z"]
 bench_bots = ["VP", "R"]
 features_file_path = "../../catanatron_gym/catanatron_gym/features.py"
 
@@ -33,17 +33,18 @@ bots.each_with_index do |bot, bot_index|
         File.write(features_file_path, features_file_content)
 
         discounts.each do |discount|
-            experiment_name = "#{bot}-#{feature_type}-#{discount}"
-            learning_command_line = "python #{bot}_player.py #{bot}_#{feature_type}_#{discount} #{discount}"
+            experiment_name = "#{bot}_#{feature_type}_#{discount}"
+            learning_command_line = "python #{bot}_player.py #{experiment_name} #{discount}"
             system(learning_command_line)
 
             bench_bots.each do |bench_bot|
-                benchmark_command_line = "catanatron-play --players=#{bot_tags[bot_index]}:#{experiment_name},#{bench_bot} --num=#{bench_rounds}"
+                benchmark_command_line = "catanatron-play --players=#{bots_tags[bot_index]}:#{experiment_name},#{bench_bot} --num=#{bench_rounds}"
                 bench_mv_command_line = "mv ./data/metrics/#{bot}-player/#{experiment_name}/benchmark_metrics.csv ./data/metrics/#{bot}-player/#{experiment_name}/benchmark_metrics_#{bench_bot}.csv"
                 system(benchmark_command_line)
                 system(bench_mv_command_line)
             end
             rm_tables_command_line = "rm -rf ./data/tables"
+            system(rm_tables_command_line)
         end
     end
 end
