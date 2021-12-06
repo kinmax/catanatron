@@ -17,7 +17,7 @@ all_features = [*player_features, *resource_hand_features, *build_production_fea
 feature_types_array = ["phbgm", "phbg", "phb", "ph", "p"]
 
 discounts = [0.1, 0.5, 0.9]
-bench_rounds = 100
+bench_rounds = 1000
 
 bots = ["sarsa"]
 bots_tags = ["Z"]
@@ -49,8 +49,8 @@ bots.each_with_index do |bot, bot_index|
     end
 end
 
-features_file_content = File.read(features_file_path)
-all_features.each do |ft|
-    features_file_content.gsub!("##{ft}", ft)
-end
-File.write(features_file_path, features_file_content)
+# features_file_content = File.read(features_file_path)
+# all_features.each do |ft|
+#     features_file_content.gsub!("##{ft}", ft)
+# end
+# File.write(features_file_path, features_file_content)
